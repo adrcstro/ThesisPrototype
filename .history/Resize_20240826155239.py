@@ -31,7 +31,7 @@ def resize_images(input_dir, output_dir, size=(128, 128)):
                 print(f"Resized and saved {file} to {save_dir}")
 
 # Example usage:
-input_directory = r'C:\Users\andre\Downloads\archive (7)\skin-disease-datasaet\train_set\VI-shingles'
-output_directory = r'C:\Users\andre\Downloads\7Dataset-20240717T141942Z-001\Final Datasets\shingels skin desease'
+input_directory = r'C:\Users\andre\Downloads\7Dataset-20240717T141942Z-001\7 Dataset\OtherDataset(Pre-Trained)\Dataset\train\Melanoma Skin Cancer Nevi and Moles'
+output_directory = r'C:\Users\andre\Downloads\7Dataset-20240717T141942Z-001\Final Datasets\melanoma'
 
 resize_images(input_directory, output_directory)
