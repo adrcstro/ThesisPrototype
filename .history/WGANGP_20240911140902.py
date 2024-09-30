@@ -15,7 +15,7 @@ CHANNELS = 3  # Number of image channels (e.g., 3 for RGB images)
 BATCH_SIZE = 64
 LAMBDA_GP = 10  # Gradient penalty lambda hyperparameter
 N_CRITIC = 5  # Number of critic iterations per generator iteration
-EPOCHS = 20000  # Total number of epochs
+EPOCHS = 20000
 SAMPLE_INTERVAL = 100
 
 # Input and output directories
@@ -59,7 +59,8 @@ class CustomDataset(Dataset):
 dataset = CustomDataset(root_dir=input_dir, transform=transform)
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-# Generator and Critic models
+# Generator and Critic models (define your Generator and Critic classes here)
+
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
@@ -133,6 +134,10 @@ Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTen
 # Training loop
 for epoch in range(EPOCHS):
     for i, imgs in enumerate(dataloader):
+        if generated_image_count >= TOTAL_IMAGES_TO_GENERATE:
+            print(f"Generated {generated_image_count} images. Stopping training.")
+            break
+        
         # Configure input
         real_imgs = imgs.type(Tensor)
         
@@ -159,13 +164,14 @@ for epoch in range(EPOCHS):
             g_loss.backward()
             optimizer_G.step()
 
+            # Save synthetic images in the output directory
+            for j in range(gen_imgs.size(0)):
+                if generated_image_count >= TOTAL_IMAGES_TO_GENERATE:
+                    break
+                save_image(gen_imgs.data[j], f"{output_dir}/synthetic_{generated_image_count}.png", normalize=True)
+                generated_image_count += 1
+
         print(f"[Epoch {epoch}/{EPOCHS}] [Batch {i}/{len(dataloader)}] [D loss: {c_loss.item()}] [G loss: {g_loss.item()}]")
 
-# Generate and save final synthetic images after the last epoch
-print("Generating final images after training...")
-z = Tensor(np.random.normal(0, 1, (TOTAL_IMAGES_TO_GENERATE, LATENT_DIM)))
-final_synthetic_imgs = generator(z)
-for j in range(TOTAL_IMAGES_TO_GENERATE):
-    save_image(final_synthetic_imgs.data[j], f"{output_dir}/synthetic_final_{j}.png", normalize=True)
-
-print(f"Generated {TOTAL_IMAGES_TO_GENERATE} final synthetic images and saved them in {output_dir}.")
+    if generated_image_count >= TOTAL_IMAGES_TO_GENERATE:
+        break
