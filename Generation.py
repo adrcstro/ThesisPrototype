@@ -15,19 +15,19 @@ CHANNELS = 3  # Number of image channels (e.g., 3 for RGB images)
 BATCH_SIZE = 64
 LAMBDA_GP = 10  # Gradient penalty lambda hyperparameter
 N_CRITIC = 5  # Number of critic iterations per generator iteration
-EPOCHS = 20000
+EPOCHS = 20000  # Total number of epochs
 SAMPLE_INTERVAL = 100
 
 # Input and output directories
-input_dir = r"C:\Users\andre\Downloads\7Dataset-20240717T141942Z-001\CleanedDatasets\Acne"  # Replace with the path to your dataset
-output_dir = r"C:\Users\andre\Downloads\7Dataset-20240717T141942Z-001\Syntheticdatasets\Acne"  # Replace with the path to save synthetic images
+input_dir = r"C:\Users\User-PC\Documents\GitHub\thesisprototype2\CleanedDatasets-20240911T053936Z-001\CleanedDatasets\vitiligo"  # Replace with the path to your dataset
+output_dir = r"C:\Users\User-PC\Documents\GitHub\thesisprototype2\syntheticDataset\vitiligo"  # Replace with the path to save synthetic images
 
 # Create output directory if it doesn't exist
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
 # Total number of images to save
-TOTAL_IMAGES_TO_GENERATE = 100
+TOTAL_IMAGES_TO_GENERATE = 1200
 generated_image_count = 0
 
 # Image transformation
@@ -59,41 +59,66 @@ class CustomDataset(Dataset):
 dataset = CustomDataset(root_dir=input_dir, transform=transform)
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-# Define the Generator class
+# Generator and Critic models
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(LATENT_DIM, 128 * 32 * 32),  # Latent dimension to intermediate size
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.BatchNorm1d(128 * 32 * 32),
-            nn.Unflatten(1, (128, 32, 32)),
-            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(64, CHANNELS, kernel_size=4, stride=2, padding=1),  # Output with 3 channels
-            nn.Tanh()  # Normalize output to [-1, 1]
+            nn.Linear(LATENT_DIM, 128),
+            nn.ReLU(True),
+            nn.Linear(128, 256),
+            nn.ReLU(True),
+            nn.Linear(256, 512),
+            nn.ReLU(True),
+            nn.Linear(512, CHANNELS * IMG_SIZE * IMG_SIZE),
+            nn.Tanh()
         )
 
     def forward(self, z):
-        return self.model(z)
+        img = self.model(z)
+        img = img.view(img.size(0), CHANNELS, IMG_SIZE, IMG_SIZE)
+        return img
 
-# Define the Critic class
 class Critic(nn.Module):
     def __init__(self):
         super(Critic, self).__init__()
         self.model = nn.Sequential(
-            nn.Conv2d(CHANNELS, 64, kernel_size=4, stride=2, padding=1),  # Input has 3 channels (RGB)
+            nn.Linear(CHANNELS * IMG_SIZE * IMG_SIZE, 512),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(128),
+            nn.Linear(512, 256),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Flatten(),
-            nn.Linear(128 * 32 * 32, 1)  # Output a single scalar
+            nn.Linear(256, 1)
         )
 
     def forward(self, img):
-        return self.model(img)
+        img_flat = img.view(img.size(0), -1)
+        validity = self.model(img_flat)
+        return validity
+
+# Function to compute gradient penalty for WGAN-GP
+def compute_gradient_penalty(critic, real_samples, fake_samples):
+    # Random weight term for interpolation between real and fake samples
+    alpha = torch.rand(real_samples.size(0), 1, 1, 1, device=real_samples.device)
+    interpolates = (alpha * real_samples + (1 - alpha) * fake_samples).requires_grad_(True)
+
+    # Get critic's output for the interpolated samples
+    d_interpolates = critic(interpolates)
+
+    # Compute gradients of the critic's output with respect to the interpolated samples
+    gradients = torch.autograd.grad(
+        outputs=d_interpolates,
+        inputs=interpolates,
+        grad_outputs=torch.ones(d_interpolates.size(), device=real_samples.device),
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True
+    )[0]
+
+    # Flatten the gradients and compute their norm
+    gradients = gradients.view(gradients.size(0), -1)
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+
+    return gradient_penalty
 
 # Initialize generator and critic
 generator = Generator()
@@ -108,44 +133,39 @@ Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTen
 # Training loop
 for epoch in range(EPOCHS):
     for i, imgs in enumerate(dataloader):
-        if generated_image_count >= TOTAL_IMAGES_TO_GENERATE:
-            print(f"Generated {generated_image_count} images. Stopping training.")
-            break
-
         # Configure input
         real_imgs = imgs.type(Tensor)
-
+        
         # Train Critic
         optimizer_C.zero_grad()
-
+        
         z = Tensor(np.random.normal(0, 1, (imgs.size(0), LATENT_DIM)))
         fake_imgs = generator(z).detach()
         real_validity = critic(real_imgs)
         fake_validity = critic(fake_imgs)
         gradient_penalty = compute_gradient_penalty(critic, real_imgs.data, fake_imgs.data)
         c_loss = -torch.mean(real_validity) + torch.mean(fake_validity) + LAMBDA_GP * gradient_penalty
-
+        
         c_loss.backward()
         optimizer_C.step()
-
+        
         # Train Generator every N_CRITIC steps
         if i % N_CRITIC == 0:
             optimizer_G.zero_grad()
-
+            
             gen_imgs = generator(z)
             g_loss = -torch.mean(critic(gen_imgs))
-
+            
             g_loss.backward()
             optimizer_G.step()
 
-            # Save synthetic images in the output directory
-            for j in range(gen_imgs.size(0)):
-                if generated_image_count >= TOTAL_IMAGES_TO_GENERATE:
-                    break
-                save_image(gen_imgs.data[j], f"{output_dir}/synthetic_{generated_image_count}.png", normalize=True)
-                generated_image_count += 1
-
         print(f"[Epoch {epoch}/{EPOCHS}] [Batch {i}/{len(dataloader)}] [D loss: {c_loss.item()}] [G loss: {g_loss.item()}]")
 
-    if generated_image_count >= TOTAL_IMAGES_TO_GENERATE:
-        break
+# Generate and save final synthetic images after the last epoch
+print("Generating final images after training...")
+z = Tensor(np.random.normal(0, 1, (TOTAL_IMAGES_TO_GENERATE, LATENT_DIM)))
+final_synthetic_imgs = generator(z)
+for j in range(TOTAL_IMAGES_TO_GENERATE):
+    save_image(final_synthetic_imgs.data[j], f"{output_dir}/synthetic_final_{j}.png", normalize=True)
+
+print(f"Generated {TOTAL_IMAGES_TO_GENERATE} final synthetic images and saved them in {output_dir}.")
