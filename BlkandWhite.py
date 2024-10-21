@@ -27,8 +27,8 @@ def convert_to_grayscale(input_dir, output_dir):
             print(f"Converted {filename} to grayscale and saved to {output_path}")
 
 # Paths
-input_directory = r"C:\xampp\htdocs\ThesisPrototype\CleanedOriginalDatasets\Warts"  # Replace with the path to your image datasets
-output_directory = r"C:\xampp\htdocs\ThesisPrototype\Grayscaledatasets\Original\Warts"  # Replace with the path where you want to save grayscale images
+input_directory = r"C:\Users\Donald\OneDrive\Documents\GitHub\ThesisPrototype\CleanedSyntheticDatasets\Warts"  # Replace with the path to your image datasets
+output_directory = r"C:\Users\Donald\OneDrive\Documents\GitHub\ThesisPrototype\Grayscaledatasets\synthetic\Warts"  # Replace with the path where you want to save grayscale images
 
 # Convert images in the directory
 convert_to_grayscale(input_directory, output_directory)
