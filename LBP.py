@@ -75,6 +75,6 @@ def process_image_dataset(input_dir, output_dir, P=8, R=1, smooth=False, sigma=0
             print(f'Saved enhanced LBP image to: {lbp_image_path}')
 
 # Example usage
-input_directory = r"C:\Users\Donald\OneDrive\Documents\GitHub\ThesisPrototype\syntheticDataset\Psoriasis"  # Replace with your input directory
-output_directory = r"C:\Users\Donald\OneDrive\Documents\GitHub\ThesisPrototype\DatasetswithLBP\OriginalDatasetswithLBP\synthetic\Psoriasis"  # Replace with your output directory
+input_directory = r"C:\Users\Jodelyn Eltagunde\OneDrive - DEPED NCR-1\Documents\GitHub\ThesisPrototype\Grayscaledatasets\synthetic\Shingels"  # Replace with your input directory
+output_directory = r"C:\Users\Jodelyn Eltagunde\OneDrive - DEPED NCR-1\Documents\GitHub\ThesisPrototype\DatasetswithLBP\OriginalDatasetswithLBP\synthetic\Shingels"  # Replace with your output directory
 process_image_dataset(input_directory, output_directory, smooth=False)  # Disable smoothing for clarity
